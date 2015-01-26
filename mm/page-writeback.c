@@ -964,7 +964,11 @@ static int __cpuinit
 ratelimit_handler(struct notifier_block *self, unsigned long action,
 		  void *hcpu)
 {
+<<<<<<< HEAD
 
+=======
+	
+>>>>>>> ff4396b... CPU hotplug, writeback: Don't call writeback_set_ratelimit() too often during hotplug
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_ONLINE:
 	case CPU_DEAD:
