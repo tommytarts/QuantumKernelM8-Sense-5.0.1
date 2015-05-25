@@ -1,7 +1,5 @@
 # Makefile for staging directory
 
-KBUILD_CFLAGS	+=-O3
-
 # fix for build system bug...
 obj-$(CONFIG_STAGING)		+= staging.o
 
@@ -54,7 +52,6 @@ obj-$(CONFIG_TOUCHSCREEN_CLEARPAD_TM1217)	+= cptm1217/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4)	+= ste_rmi4/
 obj-$(CONFIG_INTEL_MEI)		+= mei/
 obj-$(CONFIG_MFD_NVEC)		+= nvec/
-obj-$(CONFIG_CPUPOWER)    +=cpupower/
 obj-$(CONFIG_DRM_OMAP)		+= omapdrm/
 obj-$(CONFIG_ANDROID)		+= android/
 obj-$(CONFIG_PHONE)		+= telephony/

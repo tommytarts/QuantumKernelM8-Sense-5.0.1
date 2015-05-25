@@ -5,8 +5,6 @@
 # Rewritten to use lists instead of if-statements.
 # 
 
-KBUILD_CFLAGS	+=-O3
-
 obj-y :=	open.o read_write.o file_table.o super.o \
 		char_dev.o stat.o exec.o pipe.o namei.o fcntl.o \
 		ioctl.o readdir.o select.o fifo.o dcache.o inode.o \
@@ -127,7 +125,6 @@ obj-$(CONFIG_GFS2_FS)           += gfs2/
 obj-y				+= exofs/ # Multiple modules
 obj-$(CONFIG_CEPH_FS)		+= ceph/
 obj-$(CONFIG_PSTORE)		+= pstore/
-obj-$(CONFIG_EXFAT_FS)		+= exfat/
 
 # Patched by YAFFS
 obj-$(CONFIG_YAFFS_FS)		+= yaffs2/

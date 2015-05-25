@@ -120,12 +120,12 @@ struct blk_plug;
 extern unsigned long avenrun[];		/* Load averages */
 extern void get_avenrun(unsigned long *loads, unsigned long offset, int shift);
 
-#define FSHIFT 11 			/* bits of precision */
-#define LOAD_FREQ	(4*HZ+122)	/* 4.61 sec intervals */
-#define FIXED_1		(1UL<<FSHIFT)	/* 1.0 as fixed-point */
-#define EXP_1           1896		/* 1/exp(4.61sec/1min) as fixed-point */
-#define EXP_5		2017		/* 1/exp(4.61sec/5min) */
-#define EXP_15		2038		/* 1/exp(4.61sec/15min) */
+#define FSHIFT		11		/* nr of bits of precision */
+#define FIXED_1		(1<<FSHIFT)	/* 1.0 as fixed-point */
+#define LOAD_FREQ	(5*HZ+1)	/* 5 sec intervals */
+#define EXP_1		1884		/* 1/exp(5sec/1min) as fixed-point */
+#define EXP_5		2014		/* 1/exp(5sec/5min) */
+#define EXP_15		2037		/* 1/exp(5sec/15min) */
 
 #define CALC_LOAD(load,exp,n) \
 	load *= exp; \
@@ -1270,7 +1270,6 @@ struct task_struct {
 	atomic_t usage;
 	unsigned int flags;	/* per process flags, defined below */
 	unsigned int ptrace;
-	unsigned int yield_count;
 
 #ifdef CONFIG_SMP
 	struct llist_node wake_entry;
@@ -2061,8 +2060,6 @@ extern unsigned int sysctl_sched_nr_migrate;
 extern unsigned int sysctl_sched_time_avg;
 extern unsigned int sysctl_timer_migration;
 extern unsigned int sysctl_sched_shares_window;
-extern unsigned int sysctl_sched_yield_sleep_duration;
-extern int sysctl_sched_yield_sleep_threshold;
 
 int sched_proc_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *length,
@@ -2135,7 +2132,6 @@ extern int task_nice(const struct task_struct *p);
 extern int can_nice(const struct task_struct *p, const int nice);
 extern int task_curr(const struct task_struct *p);
 extern int idle_cpu(int cpu);
-extern int idle_cpu_relaxed(int cpu);
 extern int sched_setscheduler(struct task_struct *, int,
 			      const struct sched_param *);
 extern int sched_setscheduler_nocheck(struct task_struct *, int,

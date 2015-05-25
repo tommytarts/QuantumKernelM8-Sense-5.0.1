@@ -1932,24 +1932,25 @@ static int __mdss_fb_display_thread(void *data)
 				mfd->index);
 
 	while (1) {
-		ret = wait_event_interruptible(mfd->commit_wait_q,
+		wait_event(mfd->commit_wait_q,
 				(atomic_read(&mfd->commits_pending) ||
 				 kthread_should_stop()));
-
-		if (ret) {
-			pr_info("%s: interrupted", __func__);
-			continue;
-		}
 
 		if (kthread_should_stop())
 			break;
 
 		if (mfd->panel_info->skip_frame) {
 			if (!frame_count) {
-				if (pwrctrl_pdata.bkl_config)
+				if (pwrctrl_pdata.bkl_config) {
 					pwrctrl_pdata.bkl_config(pdata, 0);
-				else
+				} else {
+#if defined(CONFIG_MACH_DUMMY)
+					memset(mfd->fbi->screen_base, 0, mfd->fbi->fix.smem_len);
+#else
 					pdata->set_backlight(pdata, 0);
+#endif
+
+				}
 			}
 			frame_count++;
 			if (frame_count > 2)
@@ -2421,7 +2422,8 @@ static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
 		(cmd != MSMFB_OVERLAY_VSYNC_CTRL) &&
 		(cmd != MSMFB_ASYNC_BLIT) &&
 		(cmd != MSMFB_BLIT) &&
-		(cmd != MSMFB_NOTIFY_UPDATE)) {
+		(cmd != MSMFB_NOTIFY_UPDATE) &&
+		(cmd != MSMFB_OVERLAY_PREPARE)) {
 		ret = mdss_fb_pan_idle(mfd);
 	}
 

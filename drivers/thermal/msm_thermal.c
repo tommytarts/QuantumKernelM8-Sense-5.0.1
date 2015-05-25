@@ -43,8 +43,6 @@
 #include <mach/rpm-smd.h>
 #include <mach/scm.h>
 
-struct cpufreq_policy *policy = NULL;
-
 #define MAX_CURRENT_UA 1000000
 #define MAX_RAILS 5
 #define MAX_THRESHOLD 2
@@ -70,9 +68,8 @@ static struct completion hotplug_notify_complete;
 static struct completion freq_mitigation_complete;
 static struct completion thermal_monitor_complete;
 
-static int enabled = 1;
+static int enabled;
 static int polling_enabled;
-static int is_throttling = 0;
 static int rails_cnt;
 static int psm_rails_cnt;
 static int ocr_rail_cnt;
@@ -813,7 +810,7 @@ static int msm_thermal_get_freq_table(void)
 		i++;
 
 	limit_idx_low = 0;
-	limit_idx_high = limit_idx = i;
+	limit_idx_high = limit_idx = i - 1;
 	BUG_ON(limit_idx_high <= 0 || limit_idx_high <= limit_idx_low);
 fail:
 	return ret;
@@ -998,7 +995,6 @@ static void __ref do_core_control(long temp)
 {
 	int i = 0;
 	int ret = 0;
-	policy = cpufreq_cpu_get(0);
 
 	if (!core_control_enabled)
 		return;
@@ -1274,9 +1270,6 @@ static void __ref do_freq_control(long temp)
 	uint32_t max_freq = cpus[cpu].limited_max_freq;
 
 	if (temp >= msm_thermal_info.limit_temp_degC) {
-		if ( !is_throttling ) {
-			is_throttling = 1;
-		}
 		if (limit_idx == limit_idx_low)
 			return;
 
@@ -1524,7 +1517,6 @@ static __ref int do_freq_mitigation(void *data)
 			;
 		INIT_COMPLETION(freq_mitigation_complete);
 
-		get_online_cpus();
 		for_each_possible_cpu(cpu) {
 			max_freq_req = (cpus[cpu].max_freq) ?
 					msm_thermal_info.freq_limit :
@@ -1552,7 +1544,6 @@ reset_threshold:
 				cpus[cpu].freq_thresh_clear = false;
 			}
 		}
-		put_online_cpus();
 	}
 	return ret;
 }
@@ -3197,7 +3188,7 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	key = "qcom,freq-control-mask";
 	ret = of_property_read_u32(node, key, &data.bootup_freq_control_mask);
 
-#if defined(CONFIG_MACH_EYE_UL)
+#if defined(CONFIG_MACH_DUMMY)
 	if(get_kernel_flag() & KERNEL_FLAG_KEEP_CHARG_ON) {
 		data.poll_ms = 100;
 		data.bootup_freq_step = 4;

@@ -49,17 +49,17 @@ struct row_queue_params {
 };
 
 static const struct row_queue_params row_queues_def[] = {
+	{true, 10, true, 0},	
+	{false, 1, false, 0},	
 	{true, 100, true, 0},	
-	{false, 5, false, 0},	
-	{true, 75, true, 0},	
-	{false, 4, false, 3 * HZ},	
-	{false, 4, false, 3 * HZ},	
-	{false, 3, false, 0},	
-	{false, 2, false, 3 * HZ}	
+	{false, 1, false, 3 * HZ},	
+	{false, 1, false, 3 * HZ},	
+	{false, 1, false, 0},	
+	{false, 1, false, 3 * HZ}	
 };
 
-#define ROW_IDLE_TIME_MSEC 10
-#define ROW_READ_FREQ_MSEC 25
+#define ROW_IDLE_TIME_MSEC 5
+#define ROW_READ_FREQ_MSEC 5
 
 struct rowq_idling_data {
 	ktime_t			last_insert_time;
@@ -165,7 +165,7 @@ static inline void __maybe_unused row_dump_reg_and_low_stat(struct row_data *rd)
 	for (i = ROWQ_PRIO_REG_SWRITE; i < ROWQ_MAX_PRIO; i++) {
 		if (!list_empty(&rd->row_queues[i].fifo)) {
 			struct request *check_req = list_entry_rq(rd->row_queues[i].fifo.next);
-			unsigned int check_jiffies = ((unsigned long) (check_req)->csd.list.next);
+			unsigned long check_jiffies = ((unsigned long) (check_req)->csd.list.next);
 
 			if (time_after(jiffies,
 			    check_jiffies + msecs_to_jiffies(ROW_DUMP_REQ_STAT_MSECS))) {

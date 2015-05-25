@@ -65,10 +65,10 @@ static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
 
 /* Hi speed to bump to from lo speed when load burst (default max) */
-static unsigned int hispeed_freq = 1036000;
+static unsigned int hispeed_freq;
 
 /* Go to hi speed when CPU load at or above this value. */
-#define DEFAULT_GO_HISPEED_LOAD 90
+#define DEFAULT_GO_HISPEED_LOAD 99
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
 /* Sampling down factor to be applied to min_sample_time at max freq */
@@ -90,7 +90,7 @@ static unsigned long min_sample_time = DEFAULT_MIN_SAMPLE_TIME;
 /*
  * The sample rate of the timer used to increase frequency
  */
-#define DEFAULT_TIMER_RATE (30 * USEC_PER_MSEC)
+#define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
 static unsigned long timer_rate = DEFAULT_TIMER_RATE;
 
 /* Busy SDF parameters*/
@@ -129,7 +129,7 @@ static bool io_is_busy;
  * up_threshold_any_cpu_freq then do not let the frequency to drop below
  * sync_freq
  */
-static unsigned int up_threshold_any_cpu_load = 50;
+static unsigned int up_threshold_any_cpu_load;
 static unsigned int sync_freq;
 static unsigned int up_threshold_any_cpu_freq;
 
@@ -405,9 +405,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	if (!pcpu->governor_enabled)
 		goto exit;
 
-	if (cpu_is_offline(data))
-		goto exit;
-
 	spin_lock_irqsave(&pcpu->load_lock, flags);
 	now = update_load(data);
 	delta_time = (unsigned int)(now - pcpu->cputime_speedadj_timestamp);
@@ -507,12 +504,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 		pcpu->floor_validate_time = now;
 	}
 
-	/* In case actual freq set in target(policy->cur) is not updated
-	 * till next timer interrupt arrives, new_freq remains same as
-	 * actual freq. Don't go for setting same frequency again.
-	 */
-	if (pcpu->target_freq == new_freq
-		&& pcpu->policy->cur == new_freq) {
+	if (pcpu->target_freq == new_freq) {
 		trace_cpufreq_interactive_already(
 			data, cpu_load, pcpu->target_freq,
 			pcpu->policy->cur, new_freq);
@@ -547,21 +539,16 @@ exit:
 
 static void cpufreq_interactive_idle_start(void)
 {
-	int cpu = smp_processor_id();
-	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
+	struct cpufreq_interactive_cpuinfo *pcpu =
+		&per_cpu(cpuinfo, smp_processor_id());
 	int pending;
 	u64 now;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
 		return;
-	if (!pcpu->governor_enabled)
-		goto exit;
-
-	/* Cancel the timer if cpu is offline */
-	if (cpu_is_offline(cpu)) {
-		del_timer(&pcpu->cpu_timer);
-		del_timer(&pcpu->cpu_slack_timer);
-		goto exit;
+	if (!pcpu->governor_enabled) {
+		up_read(&pcpu->enable_sem);
+		return;
 	}
 
 	pending = timer_pending(&pcpu->cpu_timer);
@@ -588,7 +575,6 @@ static void cpufreq_interactive_idle_start(void)
 		}
 	}
 
-exit:
 	up_read(&pcpu->enable_sem);
 }
 
@@ -815,7 +801,7 @@ static ssize_t show_target_loads(
 		ret += sprintf(buf + ret, "%u%s", target_loads[i],
 			       i & 0x1 ? ":" : " ");
 
-	sprintf(buf + ret - 1, "\n");
+	ret += sprintf(buf + --ret, "\n");
 	spin_unlock_irqrestore(&target_loads_lock, flags);
 	return ret;
 }
@@ -858,7 +844,7 @@ static ssize_t show_above_hispeed_delay(
 		ret += sprintf(buf + ret, "%u%s", above_hispeed_delay[i],
 			       i & 0x1 ? ":" : " ");
 
-	sprintf(buf + ret - 1, "\n");
+	ret += sprintf(buf + --ret, "\n");
 	spin_unlock_irqrestore(&above_hispeed_delay_lock, flags);
 	return ret;
 }
@@ -1047,7 +1033,6 @@ static ssize_t store_boost(struct kobject *kobj, struct attribute *attr,
 		trace_cpufreq_interactive_boost("on");
 		cpufreq_interactive_boost();
 	} else {
-		boostpulse_endtime = ktime_to_us(ktime_get());
 		trace_cpufreq_interactive_unboost("off");
 	}
 
@@ -1244,6 +1229,9 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
+		if (!cpu_online(policy->cpu))
+			return -EINVAL;
+
 		mutex_lock(&gov_lock);
 
 		freq_table =

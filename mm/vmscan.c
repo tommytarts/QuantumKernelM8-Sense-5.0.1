@@ -474,8 +474,18 @@ static pageout_t pageout(struct page *page, struct address_space *mapping,
 		if (!PageWriteback(page)) {
 			/* synchronous write or broken a_ops? */
 			ClearPageReclaim(page);
-			if (PageError(page))
+			if (PageError(page) && PageSwapCache(page)) {
+				ClearPageError(page);
+				/*
+				 * We lock the page here because it is required
+				 * to free the swp space later in
+				 * shrink_page_list. But the page may be
+				 * unclocked by functions like
+				 * handle_write_error.
+				 */
+				__set_page_locked(page);
 				return PAGE_ACTIVATE;
+			}
 		}
 		trace_mm_vmscan_writepage(page, trace_reclaim_flags(page));
 		inc_zone_page_state(page, NR_VMSCAN_WRITE);
@@ -1282,7 +1292,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct mem_cgroup_zone *mz,
 	struct lruvec *lruvec = mem_cgroup_zone_lruvec(zone, mz->mem_cgroup);
 
 	while (unlikely(too_many_isolated(zone, file, sc))) {
-		congestion_wait_kswapd(BLK_RW_ASYNC, HZ/10);
+		congestion_wait(BLK_RW_ASYNC, HZ/10);
 
 		/* We are about to die and free our memory. Return now. */
 		if (fatal_signal_pending(current))
